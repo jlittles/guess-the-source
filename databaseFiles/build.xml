@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+
+<project default="quotesdb" basedir=".">
+
+<!-- Set Properties -->
+  <property name="lib.dir" value="/Users/jameslittles/derby_10/lib"/>
+
+
+<!-- Targets -->
+
+  <target name="quotesdb" depends="buildschema,loadtables,jarup"/>
+
+
+  <target name="buildschema">
+    <java classname="org.apache.derby.tools.ij" output="quotesdb.out"
+          failonerror="true"
+          dir="." fork="true">
+      <classpath>
+        <pathelement path="${lib.dir}/derby.jar"/>
+        <pathelement path="${lib.dir}/derbytools.jar"/>
+      </classpath>
+      <sysproperty key="ij.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <sysproperty key="ij.database" value="jdbc:derby:quotesdb;create=true"/>
+      <arg value="kjvDB_schema.sql"/>
+    </java>
+  </target>
+
+  <target name="loadtables">
+    <java classname="org.apache.derby.tools.ij"
+          output="quotesdb.out" append="true"
+          failonerror="true"
+          dir="." fork="true">
+      <classpath>
+        <pathelement path="${lib.dir}/derby.jar"/>
+        <pathelement path="${lib.dir}/derbytools.jar"/>
+      </classpath>
+      <sysproperty key="ij.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <sysproperty key="ij.database" value="jdbc:derby:quotesdb;create=true"/>
+      <arg value="loadTables.sql"/>
+    </java>
+  </target>
+
+  <target name="jarup"> 
+    <zip destfile="quotesdb.jar"
+         basedir="quotesdb"/>
+    <echo level="info" message="Finished building quotesdb"/>
+  </target>
+
+</project>
