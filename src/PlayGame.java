@@ -15,6 +15,7 @@ import java.sql.Statement;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class PlayGame extends JFrame implements ActionListener, KeyListener {
 	
@@ -235,28 +236,87 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 		//JTextField field1 = new JTextField("" + this.numPlayers);
 		JPanel nPPrompt = new JPanel(new GridLayout(0,1));
 		nPPrompt.add(new JLabel("Select player:"));
-		combo.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				//for (int i = 0; i )
-			}
-		});
 		nPPrompt.add(combo);
 		ArrayList<JTextField> fields = new ArrayList<JTextField>(sources.size());
 		ArrayList<JLabel> labels = new ArrayList<JLabel>(sources.size());
+		ArrayList<Character> previousKey = new ArrayList<Character>(sources.size());
 		for (int i = 0; i < this.sources.size(); i++) {
 			labels.add(i,new JLabel(this.sources.get(i).source));
 			fields.add(i,new JTextField( this.reversePlayerKeys.get(
 					new PlayerChoice(0,
 							labels.get(i).getText())).toString()));
+			previousKey.add(i,fields.get(i).getText().charAt(0));
 			nPPrompt.add(labels.get(i));
 			nPPrompt.add(fields.get(i));
 		}
+		combo.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if (e.getSource().getClass() == JComboBox.class) {
+					for (int i = 0; i < fields.size(); i++) {
+						fields.get(i).setText(reversePlayerKeys.get(
+								new PlayerChoice(combo.getSelectedIndex(),
+										labels.get(i).getText())).toString());
+						previousKey.set(i,fields.get(i).getText().charAt(0));
+					}
+				}
+			}
+		});
 		//nPPrompt.add(field1);
+		JButton submit = new JButton("Submit");
+		submit.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				HashSet<Character> newKeysHash = new HashSet<Character>();
+				boolean good = true;
+					for (int i = 0; i < fields.size(); i++) {
+						String text = fields.get(i).getText();
+						if (text.length() != 1) {
+							fields.get(i).setText( text + " <- must be single character");
+							good = false;
+						} else if (playerKeys.containsKey(text.charAt(0))
+								&& playerKeys.get(text.charAt(0)).player != combo.getSelectedIndex()) {
+							fields.get(i).setText( text + " <- key already taken");
+							good = false;
+						} else {
+						//	handle no duplicate new key
+							if (newKeysHash.contains(text.charAt(0))) {
+								fields.get(i).setText( text + " <- key already taken");
+								good = false;
+							} else {
+								newKeysHash.add(text.charAt(0));
+							}
+
+						}
+
+					}
+					if (good) {
+						ArrayList<PlayerChoice> choices = new ArrayList<PlayerChoice>(sources.size());
+						for (int i = 0; i < fields.size(); i++ ) {
+							char newChar = fields.get(i).getText().charAt(0);
+							//if (previousKey.get(i) == newChar )
+							//		continue;
+							choices.add(i,playerKeys.remove(previousKey.get(i)));
+							panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).remove(KeyStroke.getKeyStroke(defaultKeys[i][1]));;
+						}
+						for (int i = 0; i < fields.size(); i++ ) {
+							char newChar = fields.get(i).getText().charAt(0);
+							//if (previousKey.get(i) == newChar )
+							//		continue;
+							playerKeys.put(newChar,choices.get(i));
+							reversePlayerKeys.replace(playerKeys.get(newChar), newChar);
+							panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(newChar), "keyPressed");;
+							previousKey.set(i,newChar);
+						}
+					}
+					
+			}
+		});
+		nPPrompt.add(submit);
 		int result = JOptionPane.showConfirmDialog(null
 			, nPPrompt, "Enter the number of players"
 			,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
 		if (result == JOptionPane.OK_OPTION)  {
 			System.out.println(combo.getSelectedIndex() + ":" + combo.getSelectedItem());
+			submit.doClick();
 		//	System.out.println("num players = " + field1.getText());
 		}
 
