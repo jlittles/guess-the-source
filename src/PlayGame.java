@@ -5,6 +5,8 @@ import java.awt.event.*;
 import java.util.ArrayList;
 import java.sql.Connection;
 import javax.swing.*;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 
 import java.sql.DriverManager;
@@ -98,6 +100,7 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 	String[] scoreColumns = {"Player", "Correct", "Wrong", "Total", "Average"};
 	String[][] scoreData;
 	JTable scores;
+	DefaultTableModel model;
 	JButton next;
 	int V_BUTTON_START = 50;
 	int V_QUOTES_START;
@@ -198,8 +201,10 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 			scoreData[i][3] = "0";
 			scoreData[i][4] = "NA";
 		}
-
-		scores = new JTable(scoreData,scoreColumns);
+		scores = new JTable();
+		model = new DefaultTableModel(scoreData,scoreColumns);
+	
+		scores = new JTable(model);
 		JScrollPane scoreScrollPane = new JScrollPane(scores);
 		scores.setFillsViewportHeight(false);
 		scores.setDefaultEditor(Object.class, null);
@@ -219,19 +224,81 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 		JPanel nPPrompt = new JPanel(new GridLayout(0,1));
 		nPPrompt.add(new JLabel("Number of players"));
 		nPPrompt.add(field1);
-		int result = JOptionPane.showConfirmDialog(null
-			, nPPrompt, "Enter the number of players"
-			,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
-		if (result == JOptionPane.OK_OPTION)  {
-			System.out.println("num players = " + field1.getText());
+		boolean bad = true;
+		int numPlrsEntrd = numPlayers;
+		while (bad) {
+			int result = JOptionPane.showConfirmDialog(null
+				, nPPrompt, "Enter the number of players"
+				,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+			if (result == JOptionPane.OK_OPTION)  {
+				
+				try {
+					numPlrsEntrd = Integer.parseInt(field1.getText() );
+					if (numPlrsEntrd < 1 || numPlrsEntrd > 10 ) {
+						throw new NumberFormatException("Num Players OOR") ;
+					}
+						bad = false;
+				}
+				catch (NumberFormatException e) {
+					if (e.getMessage() == "Num Players OOR") {
+						field1.setText(field1.getText() + " <- must be > 0 and < 11");
+					}
+					else {
+						field1.setText(field1.getText() + " <- must be a number");
+					}
+					bad = true;
+				}
+					 
+			} else {
+				break;
+			}
+			if (!bad) {
+				if ( numPlayers == numPlrsEntrd ) 
+					return;
+				if ( numPlayers < numPlrsEntrd )  {
+					for (int i = numPlayers; i < numPlrsEntrd; i++) {
+						players.add(new Player("Player " + (i + 1)));
+						String[] newscoreData = new String[scoreColumns.length];
+						newscoreData[0] = players.get(i).name;
+						newscoreData[1] = "0";
+						newscoreData[2] = "0";
+						newscoreData[3] = "0";
+						newscoreData[4] = "NA";
+						numPlayers++;
+						model.addRow(newscoreData);
+						while (!reversePlayerKeys.containsKey(new PlayerChoice(i,sources.get(0).source)))
+							promptPlayerKeys(i);
+					}
+				} else {
+					for (int i = numPlayers; i > numPlrsEntrd; i--) {
+						players.remove(i - 1);
+						//scores.remove(i - 1);
+						model.removeRow(i - 1);
+						for (int j = 0; j < sources.size(); j++) {
+							PlayerChoice pc = new PlayerChoice(i - 1,sources.get(j).source);
+							char c = reversePlayerKeys.remove(pc);
+							playerKeys.remove(c);
+							panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).remove(KeyStroke.getKeyStroke(c));;
+						}
+						numPlayers--;
+					}
+					
+				}
+			}
+			 
 		}
 
 	}
 
-	public void promptPlayerKeys() {
+	public void promptPlayerKeys(int player) {
 		JComboBox<String> combo = new JComboBox<String>();
 		for (int i = 0; i < players.size(); i++) {
 			combo.addItem(players.get(i).name);
+		}
+		if (player >= 0) {
+			combo.setSelectedIndex(player);
+			combo.setEditable(false);
+			combo.setEnabled(false);
 		}
 		//JTextField field1 = new JTextField("" + this.numPlayers);
 		JPanel nPPrompt = new JPanel(new GridLayout(0,1));
@@ -242,14 +309,20 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 		ArrayList<Character> previousKey = new ArrayList<Character>(sources.size());
 		for (int i = 0; i < this.sources.size(); i++) {
 			labels.add(i,new JLabel(this.sources.get(i).source));
-			fields.add(i,new JTextField( this.reversePlayerKeys.get(
-					new PlayerChoice(0,
+			if (player < 0) {
+				fields.add(i,new JTextField( this.reversePlayerKeys.get(
+						new PlayerChoice(0,
 							labels.get(i).getText())).toString()));
-			previousKey.add(i,fields.get(i).getText().charAt(0));
+				previousKey.add(i,fields.get(i).getText().charAt(0));
+			}
+			else {
+				fields.add(i,new JTextField(""));
+				
+			}
 			nPPrompt.add(labels.get(i));
 			nPPrompt.add(fields.get(i));
 		}
-		combo.addActionListener(new ActionListener() {
+		if (player < 0 ) combo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				if (e.getSource().getClass() == JComboBox.class) {
 					for (int i = 0; i < fields.size(); i++) {
@@ -294,31 +367,47 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 							char newChar = fields.get(i).getText().charAt(0);
 							//if (previousKey.get(i) == newChar )
 							//		continue;
-							choices.add(i,playerKeys.remove(previousKey.get(i)));
-							panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).remove(KeyStroke.getKeyStroke(defaultKeys[i][1]));;
+							if (player < 0) {
+								choices.add(i,playerKeys.remove(previousKey.get(i)));
+								panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).remove(KeyStroke.getKeyStroke(previousKey.get(i)));;
+							} else {
+								choices.add(i,new PlayerChoice(player,labels.get(i).getText()));
+							}
 						}
 						for (int i = 0; i < fields.size(); i++ ) {
 							char newChar = fields.get(i).getText().charAt(0);
 							//if (previousKey.get(i) == newChar )
 							//		continue;
 							playerKeys.put(newChar,choices.get(i));
-							reversePlayerKeys.replace(playerKeys.get(newChar), newChar);
+							if (player < 0) 
+								reversePlayerKeys.replace(playerKeys.get(newChar), newChar);
+							else
+								reversePlayerKeys.put(playerKeys.get(newChar), newChar);
 							panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(newChar), "keyPressed");;
-							previousKey.set(i,newChar);
+							if (player < 0) previousKey.set(i,newChar);
 						}
+						if (player >= 0) return;
 					}
 					
 			}
 		});
 		nPPrompt.add(submit);
-		int result = JOptionPane.showConfirmDialog(null
+		nPPrompt.add(new JLabel("OK button does not submit settings"));
+
+		JOptionPane.showMessageDialog( null
 			, nPPrompt, "Enter the number of players"
-			,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
-		if (result == JOptionPane.OK_OPTION)  {
-			System.out.println(combo.getSelectedIndex() + ":" + combo.getSelectedItem());
-			submit.doClick();
+			,JOptionPane.PLAIN_MESSAGE);
+		//JOptionPane.showConfirmDialog(null
+		//	, nPPrompt, "Enter the number of players"
+		//	,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+		//if (result == JOptionPane.OK_OPTION)  {
+			//System.out.println(combo.getSelectedIndex() + ":" + combo.getSelectedItem());
+			//submit.doClick();
+			//if (!good && player >= 0) {
+			//	promptPlayerKeys(player);
+			//}
 		//	System.out.println("num players = " + field1.getText());
-		}
+		//}
 
 	}
 	
@@ -458,7 +547,7 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 			promptNumPlayers();
 		}
 		if ( e.getSource() == this.setPlayerKeys) {
-			promptPlayerKeys();
+			promptPlayerKeys(-1);
 		}
 
 		
@@ -514,7 +603,34 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 			
 		}
 	}
-	
+
+	class ScoresTableModel extends AbstractTableModel {
+
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public int getRowCount() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public int getColumnCount() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public Object getValueAt(int rowIndex, int columnIndex) {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		
+	}
 
 }
+
 
