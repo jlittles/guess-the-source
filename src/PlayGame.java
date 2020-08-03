@@ -28,6 +28,9 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
     private String framework = "embedded";
     private String protocol = "jdbc:derby:";
 	ArrayList<QuoteSource> sources;
+	String wordsForGod[] = {"Keep original text", "God", "Allah"};
+	int wordForGod = 0;
+	String reWordsForGod;
 	HashMap<Character,PlayerChoice> playerKeys;
 	HashMap<PlayerChoice,Character> reversePlayerKeys;
 	String answer = "";
@@ -94,7 +97,7 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 	JPanel panel;
 	JMenuBar mb;
 	JMenu settings;
-	JMenuItem setPlayers, setPlayerKeys;
+	JMenuItem setPlayers, setPlayerNames, setPlayerKeys, options;
 	ArrayList<OptionButton> buttons = new ArrayList<OptionButton>(); 
 	JTextArea quoteText;
 	String[] scoreColumns = {"Player", "Correct", "Wrong", "Total", "Average"};
@@ -114,11 +117,17 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
         mb = new JMenuBar();
         settings = new JMenu("Settings");
         setPlayers = new JMenuItem("Players");
+        setPlayerNames = new JMenuItem("Player Names");
         setPlayerKeys = new JMenuItem("Player Keys");
+        options = new JMenuItem("Options");
         setPlayers.addActionListener(this);
+        setPlayerNames.addActionListener(this);
         setPlayerKeys.addActionListener(this);
+        options.addActionListener(this);
         settings.add(setPlayers);
+        settings.add(setPlayerNames);
         settings.add(setPlayerKeys);
+        settings.add(options);
         mb.add(settings);
         this.setJMenuBar(mb);;
         
@@ -137,6 +146,9 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 		reversePlayerKeys = new HashMap<PlayerChoice,Character>();
 		sources.add(new QuoteSource("Bible", "T_KJV", 5, 31103));
 		sources.add(new QuoteSource("Quran", "QURAN", 5, 6236));
+		for (int i = 1; i < this.wordsForGod.length; i++) {
+			reWordsForGod += "|" + wordsForGod[i];
+		}
 
 		Action keyPressed = new AbstractAction() {
 		    public void actionPerformed(ActionEvent e) {
@@ -290,6 +302,27 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 
 	}
 
+	public void promptPlayerNames() {
+		JPanel nPPrompt = new JPanel(new GridLayout(0,1));
+		JTextField names[] = new JTextField[numPlayers];
+		for (int i = 0; i < numPlayers; i++) {
+			nPPrompt.add(new JLabel("Player " + (i+1) ));
+			names[i] = new JTextField(players.get(i).name);
+			nPPrompt.add(names[i]);
+		}
+		int result = JOptionPane.showConfirmDialog(null
+			, nPPrompt, "Enter the number of players"
+			,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+		if (result == JOptionPane.OK_OPTION)  {
+			for (int i = 0; i < numPlayers; i++) {
+				players.get(i).name = names[i].getText();
+				scores.setValueAt(names[i].getText(), i, 0);
+			}
+			
+		}
+
+	}
+
 	public void promptPlayerKeys(int player) {
 		JComboBox<String> combo = new JComboBox<String>();
 		for (int i = 0; i < players.size(); i++) {
@@ -410,6 +443,28 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 		//}
 
 	}
+
+	public void promptOptions() {
+		JPanel nPPrompt = new JPanel(new GridLayout(0,1));
+		nPPrompt.add(new JLabel("Word to use for God:"));
+		ArrayList<JRadioButton> rbWordsForGod = new ArrayList<JRadioButton>(wordsForGod.length);
+		ButtonGroup bgGod = new ButtonGroup();
+		for (int i = 0; i < wordsForGod.length; i++) {
+			rbWordsForGod.add( new JRadioButton(wordsForGod[i]));
+			if (wordForGod == i) 
+				rbWordsForGod.get(i).setSelected(true);
+			bgGod.add(rbWordsForGod.get(i));
+			nPPrompt.add(rbWordsForGod.get(i));
+		}
+		int result = JOptionPane.showConfirmDialog(null
+			, nPPrompt, "Enter the number of players"
+			,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+		if (result == JOptionPane.OK_OPTION)  {
+			for (wordForGod = 0; wordForGod < rbWordsForGod.size(); wordForGod++)
+				if (rbWordsForGod.get(wordForGod).isSelected()) break;
+		}
+
+	}
 	
 	public void setScore(PlayerChoice playerChoice) {
 		int player = playerChoice.player;
@@ -463,8 +518,12 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
                     "where rownum = " + randomRow);
             
             if (rs.next());
-            quoteText.setText(rs.getString(randomSource.quoteColumn + 1));
-            answerInfo = "The source was " + answer + "\n" + quoteText.getText();
+            String text = rs.getString(randomSource.quoteColumn + 1);
+            if (wordForGod > 0)
+            	quoteText.setText(text.replaceAll(reWordsForGod,wordsForGod[wordForGod]));
+            else
+            	quoteText.setText(text);
+            answerInfo = "The source was " + answer + "\n" + text;
             conn.commit();
             
         }
@@ -543,11 +602,17 @@ public class PlayGame extends JFrame implements ActionListener, KeyListener {
 			questionAnswered = false;
 			quoteText.setBackground(Color.WHITE);
 		}
-		if ( e.getSource() == this.setPlayers) {
+		if ( e.getSource() == setPlayers) {
 			promptNumPlayers();
 		}
-		if ( e.getSource() == this.setPlayerKeys) {
+		if ( e.getSource() == setPlayerNames) {
+			promptPlayerNames();
+		}
+		if ( e.getSource() == setPlayerKeys) {
 			promptPlayerKeys(-1);
+		}
+		if ( e.getSource() == options) {
+			promptOptions();
 		}
 
 		
